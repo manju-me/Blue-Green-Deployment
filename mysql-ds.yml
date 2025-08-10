@@ -1,5 +1,19 @@
 ---
-# MySQL Deployment with Resource Requests
+# PersistentVolumeClaim for MySQL data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi  # Adjust as needed
+  storageClassName: gp2  # For AWS EKS (gp2 or gp3)
+
+---
+# MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,8 +30,8 @@ spec:
         app: mysql
     spec:
       containers:
-      - image: mysql:8
-        name: mysql
+      - name: mysql
+        image: mysql:8
         env:
         - name: MYSQL_ROOT_PASSWORD
           value: "Test@123"
@@ -33,14 +47,24 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "1000m"
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+
 ---
-# MySQL Service
+# MySQL LoadBalancer Service
 apiVersion: v1
 kind: Service
 metadata:
   name: mysql-service
 spec:
-  ports:
-  - port: 3306
+  type: LoadBalancer
   selector:
     app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
